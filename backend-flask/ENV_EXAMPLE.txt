@@ -1,0 +1,22 @@
+SECRET_KEY=change-me
+DATABASE_URL=sqlite:///sby.db
+
+# Admin bootstrap
+ADMIN_EMAIL=admin@sby.local
+ADMIN_PASSWORD=change-me-now
+
+# Mail (SMTP)
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USE_TLS=true
+MAIL_USE_SSL=false
+MAIL_USERNAME=your_smtp_username
+MAIL_PASSWORD=your_smtp_password_or_app_password
+MAIL_DEFAULT_SENDER=admin@sby.local
+MAIL_SUPPRESS_SEND=false
+
+# Policy search (RAG)
+POLICY_INDEX_PATH=policy_store/policy.index
+POLICY_META_PATH=policy_store/policy_meta.json
+POLICY_EMBED_MODEL=sentence-transformers/all-MiniLM-L6-v2
+
