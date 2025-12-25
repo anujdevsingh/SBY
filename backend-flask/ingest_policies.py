@@ -36,6 +36,7 @@ def load_docs(doc_dir: Path) -> List[Tuple[str, str]]:
         else:
             continue
         docs.append((str(path), txt))
+    print(f"Loaded {len(docs)} documents from {doc_dir}")
     return docs
 
 
@@ -52,8 +53,18 @@ def chunk_text(text: str, max_words: int = 120, overlap: int = 30) -> Generator[
             start = end
 
 
-def build_index_stream(docs: List[Tuple[str, str]], model_name: str, index_path: Path, meta_path: Path, batch_size: int = 256):
+def build_index_stream(
+    docs: List[Tuple[str, str]],
+    model_name: str,
+    index_path: Path,
+    meta_path: Path,
+    batch_size: int = 256,
+    max_words: int = 120,
+    overlap: int = 30,
+):
+    print(f"Loading embedding model: {model_name}")
     model = SentenceTransformer(model_name)
+    print("Model loaded. Starting embedding and indexing...")
     index = None
     meta: List[dict] = []
     buffer_texts: List[str] = []
@@ -61,7 +72,7 @@ def build_index_stream(docs: List[Tuple[str, str]], model_name: str, index_path:
     total_chunks = 0
 
     for source, text in docs:
-        for i, chunk in enumerate(chunk_text(text)):
+        for i, chunk in enumerate(chunk_text(text, max_words=max_words, overlap=overlap)):
             buffer_texts.append(chunk)
             buffer_meta.append({"text": chunk, "source": source, "ref": f"{source}#chunk-{i}"})
             if len(buffer_texts) >= batch_size:
@@ -72,6 +83,7 @@ def build_index_stream(docs: List[Tuple[str, str]], model_name: str, index_path:
                 index.add(embeddings)
                 meta.extend(buffer_meta)
                 total_chunks += len(buffer_texts)
+                print(f"Embedded chunks so far: {total_chunks}")
                 buffer_texts.clear()
                 buffer_meta.clear()
 
@@ -83,6 +95,7 @@ def build_index_stream(docs: List[Tuple[str, str]], model_name: str, index_path:
         index.add(embeddings)
         meta.extend(buffer_meta)
         total_chunks += len(buffer_texts)
+        print(f"Embedded chunks so far: {total_chunks}")
 
     if index is None:
         raise ValueError("No chunks were indexed. Check your documents.")
@@ -102,6 +115,8 @@ def main():
     parser.add_argument('--index', default=Config.POLICY_INDEX_PATH, help='Output FAISS index path')
     parser.add_argument('--meta', default=Config.POLICY_META_PATH, help='Output metadata json path')
     parser.add_argument('--batch-size', type=int, default=256, help='Embedding batch size to control memory use')
+    parser.add_argument('--max-words', type=int, default=120, help='Max words per chunk')
+    parser.add_argument('--overlap', type=int, default=30, help='Overlap words between chunks')
     args = parser.parse_args()
 
     doc_dir = Path(args.docs)
@@ -112,7 +127,15 @@ def main():
     if not docs:
         raise ValueError("No supported documents found (txt/md/pdf).")
 
-    build_index_stream(docs, args.model, Path(args.index), Path(args.meta), batch_size=args.batch_size)
+    build_index_stream(
+        docs,
+        args.model,
+        Path(args.index),
+        Path(args.meta),
+        batch_size=args.batch_size,
+        max_words=args.max_words,
+        overlap=args.overlap,
+    )
 
 
 if __name__ == '__main__':
