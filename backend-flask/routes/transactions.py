@@ -1,5 +1,6 @@
 import os
 import uuid
+import base64
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -12,6 +13,30 @@ transactions_bp = Blueprint('transactions', __name__)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+
+def file_to_base64(file):
+    """Convert uploaded file to Base64 data URI."""
+    if not file or not file.filename:
+        return None
+    
+    # Read file content
+    content = file.read()
+    file.seek(0)  # Reset file pointer
+    
+    # Get MIME type
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    mime_types = {
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+        'webp': 'image/webp'
+    }
+    mime = mime_types.get(ext, 'image/jpeg')
+    
+    # Encode to base64
+    b64 = base64.b64encode(content).decode('utf-8')
+    return f"data:{mime};base64,{b64}"
 
 
 @transactions_bp.route('/summary', methods=['GET'])
@@ -27,6 +52,38 @@ def donation_summary():
     }), 200
 
 
+@transactions_bp.route('/top-donators', methods=['GET'])
+def top_donators():
+    """
+    Public endpoint returning top 5 donors with name, photo, and total approved donations.
+    """
+    # Get top donors with total approved donations
+    top_donors = db.session.query(
+        User.id,
+        User.full_name,
+        User.photo_path,
+        User.photo_data,
+        db.func.sum(Transaction.amount).label('total_donated')
+    ).join(Transaction, User.id == Transaction.user_id)\
+     .filter(Transaction.status == 'approved')\
+     .group_by(User.id, User.full_name, User.photo_path, User.photo_data)\
+     .order_by(db.func.sum(Transaction.amount).desc())\
+     .limit(5)\
+     .all()
+    
+    result = []
+    for donor in top_donors:
+        result.append({
+            "id": donor.id,
+            "name": donor.full_name,
+            "photo_path": donor.photo_path,
+            "photo_data": donor.photo_data,
+            "total_donated": float(donor.total_donated) if donor.total_donated else 0
+        })
+    
+    return jsonify(result), 200
+
+
 @transactions_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_transaction():
@@ -39,20 +96,21 @@ def create_transaction():
     file = request.files['screenshot']
     amount = request.form.get('amount')
     ref = request.form.get('transaction_ref')
+    user_note = request.form.get('user_note', '')  # Optional comment from user
 
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
         
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        unique_filename = f"{uuid.uuid4()}_{filename}"
-        file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
+        # Convert screenshot to Base64
+        screenshot_data = file_to_base64(file)
         
         new_tx = Transaction(
             user_id=current_user_id,
             amount=float(amount),
             transaction_ref=ref,
-            screenshot_path=unique_filename
+            screenshot_data=screenshot_data,
+            user_note=user_note if user_note else None
         )
         db.session.add(new_tx)
         db.session.commit()
@@ -60,10 +118,11 @@ def create_transaction():
         # Notify Admin
         admin_email = current_app.config.get('ADMIN_EMAIL')
         if admin_email:
+            note_line = f"\nUser note: {user_note}" if user_note else ""
             send_email(
                 subject="SBY: New transaction pending review",
                 recipients=[admin_email],
-                body=f"User {user.full_name} ({user.email}) submitted a transaction of ₹{amount} with ref {ref}."
+                body=f"User {user.full_name} ({user.email}) submitted a transaction of ₹{amount} with ref {ref}.{note_line}"
             )
         
         return jsonify({"message": "Transaction submitted successfully"}), 201

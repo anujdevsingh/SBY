@@ -13,6 +13,8 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     is_approved = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    photo_path = db.Column(db.String(255), nullable=True)
+    photo_data = db.Column(db.Text, nullable=True)  # Base64 encoded photo
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     
     # Relationships
@@ -35,6 +37,8 @@ class User(UserMixin, db.Model):
             'email': self.email,
             'full_name': self.full_name,
             'phone': self.phone,
+            'photo_path': self.photo_path,
+            'photo_data': self.photo_data,
             'is_admin': self.is_admin,
             'is_approved': self.is_approved,
             'is_active': self.is_active,
@@ -47,6 +51,8 @@ class Transaction(db.Model):
     amount = db.Column(db.Numeric(12, 2), nullable=False)
     transaction_ref = db.Column(db.String(100), nullable=True) # Bank reference number
     screenshot_path = db.Column(db.String(255), nullable=True)
+    screenshot_data = db.Column(db.Text, nullable=True)  # Base64 encoded screenshot
+    user_note = db.Column(db.String(500), nullable=True)  # User's comment about the transaction
     status = db.Column(db.Enum('pending', 'approved', 'rejected', name='transaction_status', native_enum=False), default='pending', nullable=False, index=True)
     admin_note = db.Column(db.String(255), nullable=True)
     reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
@@ -65,6 +71,8 @@ class Transaction(db.Model):
             'amount': self.amount,
             'transaction_ref': self.transaction_ref,
             'screenshot_path': self.screenshot_path,
+            'screenshot_data': self.screenshot_data,
+            'user_note': self.user_note,
             'status': self.status,
             'admin_note': self.admin_note,
             'created_at': self.created_at.isoformat(),

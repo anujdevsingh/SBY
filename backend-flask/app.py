@@ -1,6 +1,9 @@
 import os
-import os
 from dotenv import load_dotenv
+
+# IMPORTANT: Load .env BEFORE importing Config so environment variables are available
+load_dotenv()
+
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_migrate import Migrate
@@ -12,7 +15,6 @@ from werkzeug.security import generate_password_hash
 from models import User
 from extensions import mail
 
-load_dotenv()
 
 def create_app():
     app = Flask(__name__)
@@ -33,22 +35,25 @@ def create_app():
     with app.app_context():
         try:
             inspector = inspect(db.engine)
-            if inspector.has_table('user'):
-                if not User.query.filter_by(is_admin=True).first():
-                    admin = User(
-                        email=app.config['ADMIN_EMAIL'],
-                        password_hash=generate_password_hash(app.config['ADMIN_PASSWORD']),
-                        full_name='Administrator',
-                        phone='',
-                        is_admin=True,
-                        is_approved=True,
-                        is_active=True
-                    )
-                    db.session.add(admin)
-                    db.session.commit()
-                    print(f"DEFAULT ADMIN CREATED -> email: {admin.email}")
-            else:
-                print("Skipping default admin creation: user table missing. Run migrations first.")
+            # Auto-create tables if they don't exist (no need to run flask db upgrade manually)
+            if not inspector.has_table('user'):
+                print("Creating database tables...")
+                db.create_all()
+                print("Database tables created successfully!")
+            
+            if not User.query.filter_by(is_admin=True).first():
+                admin = User(
+                    email=app.config['ADMIN_EMAIL'],
+                    password_hash=generate_password_hash(app.config['ADMIN_PASSWORD']),
+                    full_name='Administrator',
+                    phone='',
+                    is_admin=True,
+                    is_approved=True,
+                    is_active=True
+                )
+                db.session.add(admin)
+                db.session.commit()
+                print(f"DEFAULT ADMIN CREATED -> email: {admin.email}")
         except Exception as exc:  # pragma: no cover - best-effort bootstrap
             print(f"Skipping default admin creation: {exc}")
 

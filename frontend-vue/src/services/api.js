@@ -6,6 +6,7 @@ export const UPLOAD_BASE_URL =
 
 const api = axios.create({
   baseURL: API_BASE,
+  timeout: 10000, // 10 second timeout to prevent infinite loading
   headers: {
     'Content-Type': 'application/json'
   }
@@ -19,5 +20,23 @@ api.interceptors.request.use(config => {
   }
   return config
 })
+
+// Intercept responses to handle 401 (unauthorized) errors
+// This happens when the token is invalid/expired (e.g., after backend restart)
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      // Token is invalid - clear auth state and redirect to login
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      // Only redirect if not already on login/register page
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  }
+)
 
 export default api

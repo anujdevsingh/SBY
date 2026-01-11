@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
-from policy_index import search
+from simple_policy_search import search
 
 policy_bp = Blueprint('policy', __name__)
 

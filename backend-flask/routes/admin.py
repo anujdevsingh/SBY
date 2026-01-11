@@ -22,7 +22,19 @@ def get_users():
         query = query.filter_by(is_approved=False)
     
     users = query.all()
-    return jsonify([u.to_dict() for u in users]), 200
+    
+    # Build result with total donated amount for each user
+    result = []
+    for user in users:
+        user_data = user.to_dict()
+        # Calculate total donated (approved transactions only)
+        total_donated = db.session.query(db.func.sum(Transaction.amount))\
+            .filter(Transaction.user_id == user.id, Transaction.status == 'approved')\
+            .scalar() or 0
+        user_data['total_donated'] = float(total_donated)
+        result.append(user_data)
+    
+    return jsonify(result), 200
 
 @admin_bp.route('/users/<int:user_id>/approve', methods=['POST'])
 @jwt_required()
