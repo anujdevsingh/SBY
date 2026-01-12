@@ -51,7 +51,7 @@
           <div class="card border-0 shadow-sm text-center p-3 h-100 donor-card">
             <div class="position-relative mx-auto mb-3">
               <div class="avatar-lg" :style="getDonorAvatarStyle(donor)">
-                <span v-if="!donor.photo_path">{{ getInitials(donor.name) }}</span>
+                <span v-if="!donor.photo_path && !donor.photo_data">{{ getInitials(donor.name) }}</span>
               </div>
               <span v-if="index === 0" class="badge-rank bg-warning text-dark">🏆</span>
               <span v-else-if="index === 1" class="badge-rank bg-secondary text-white">🥈</span>
@@ -207,6 +207,14 @@ const formatAmount = (amount) => {
 }
 
 const getDonorAvatarStyle = (donor) => {
+  // Prefer Base64 photo_data, fallback to file path
+  if (donor.photo_data) {
+    return {
+      backgroundImage: `url(${donor.photo_data})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center'
+    }
+  }
   if (donor.photo_path) {
     return {
       backgroundImage: `url(${UPLOAD_BASE_URL}/${donor.photo_path})`,

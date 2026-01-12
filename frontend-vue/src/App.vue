@@ -26,7 +26,7 @@
           <li class="nav-item" v-if="authStore.isAuthenticated">
             <button class="btn btn-link nav-link d-flex align-items-center" @click="showProfile = true">
               <div class="nav-avatar me-2" :style="avatarStyle">
-                <span v-if="!authStore.user?.photo_path">{{ getInitials(authStore.user?.full_name) }}</span>
+                <span v-if="!authStore.user?.photo_path && !authStore.user?.photo_data">{{ getInitials(authStore.user?.full_name) }}</span>
               </div>
               <span class="d-none d-md-inline">{{ authStore.user?.full_name?.split(' ')[0] }}</span>
             </button>
@@ -62,6 +62,14 @@ const router = useRouter()
 const showProfile = ref(false)
 
 const avatarStyle = computed(() => {
+  // Prefer Base64 photo_data, fallback to file path
+  if (authStore.user?.photo_data) {
+    return {
+      backgroundImage: `url(${authStore.user.photo_data})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center'
+    }
+  }
   if (authStore.user?.photo_path) {
     return {
       backgroundImage: `url(${UPLOAD_BASE_URL}/${authStore.user.photo_path})`,

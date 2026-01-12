@@ -175,6 +175,10 @@ watch(() => props.visible, (val) => {
 
 const photoUrl = computed(() => {
   if (newPhotoPreview.value) return newPhotoPreview.value
+  // Prefer Base64 photo_data, fallback to file path
+  if (authStore.user?.photo_data) {
+    return authStore.user.photo_data
+  }
   if (authStore.user?.photo_path) {
     return `${UPLOAD_BASE_URL}/${authStore.user.photo_path}`
   }

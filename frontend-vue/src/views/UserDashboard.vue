@@ -77,21 +77,20 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="tx in transactions" :key="tx.id">
-                    <td class="ps-3 text-muted">{{ formatDate(tx.created_at) }}</td>
-                    <td class="fw-bold">₹ {{ tx.amount }}</td>
+                  <tr v-for="tx in transactions" :key="tx?.id || Math.random()">
+                    <td class="ps-3 text-muted">{{ tx?.created_at ? formatDate(tx.created_at) : '—' }}</td>
+                    <td class="fw-bold">₹ {{ tx?.amount ?? 0 }}</td>
                     <td>
-                      <span class="badge" :class="statusClass(tx.status)">
-                        {{ tx.status.toUpperCase() }}
+                      <span class="badge" :class="statusClass(tx?.status)">
+                        {{ (tx?.status || 'pending').toUpperCase() }}
                       </span>
                     </td>
-                    <td class="small text-muted">{{ tx.transaction_ref }}</td>
+                    <td class="small text-muted">{{ tx?.transaction_ref || '—' }}</td>
                     <td>
-                      <a v-if="tx.screenshot_data" :href="tx.screenshot_data" target="_blank" class="btn btn-sm btn-light">View</a>
-                      <a v-else-if="tx.screenshot_path" :href="getFileUrl(tx.screenshot_path)" target="_blank" class="btn btn-sm btn-light">View</a>
+                      <button v-if="tx?.screenshot_data || tx?.screenshot_path" @click="viewProof(tx)" class="btn btn-sm btn-light">View</button>
                       <span v-else class="text-muted small">—</span>
                     </td>
-                    <td class="small text-muted" style="max-width: 160px;">{{ tx.admin_note || '—' }}</td>
+                    <td class="small text-muted" style="max-width: 160px;">{{ tx?.admin_note || '—' }}</td>
                   </tr>
                   <tr v-if="transactions.length === 0">
                     <td colspan="6" class="text-center py-4 text-muted">No transactions yet</td>
@@ -103,6 +102,26 @@
         </div>
       </div>
     </template>
+
+    <!-- Image Preview Modal -->
+    <Teleport to="body">
+      <div
+        v-if="proofModal.visible"
+        class="modal fade show d-block"
+        tabindex="-1"
+        style="background-color: rgba(0,0,0,0.8);"
+        @click.self="proofModal.visible = false"
+      >
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+          <div class="modal-content border-0 bg-transparent">
+            <div class="text-end mb-2">
+              <button type="button" class="btn btn-light btn-sm" @click="proofModal.visible = false">✕ Close</button>
+            </div>
+            <img :src="proofModal.imageUrl" class="img-fluid rounded shadow" alt="Transaction Proof" />
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -138,7 +157,7 @@ const userName = computed(() => {
 const myApprovedTotal = computed(() =>
   transactions.value
     .filter(t => t.status === 'approved')
-    .reduce((sum, t) => sum + t.amount, 0)
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0)
     .toFixed(2)
 )
 
@@ -207,6 +226,22 @@ const formatDate = (dateStr) => {
 }
 
 const getFileUrl = (path) => `${UPLOAD_BASE_URL}/${path}`
+
+// Image preview modal
+const proofModal = ref({
+  visible: false,
+  imageUrl: ''
+})
+
+const viewProof = (tx) => {
+  // Prefer Base64 data, fallback to file path
+  if (tx.screenshot_data) {
+    proofModal.value.imageUrl = tx.screenshot_data
+  } else if (tx.screenshot_path) {
+    proofModal.value.imageUrl = getFileUrl(tx.screenshot_path)
+  }
+  proofModal.value.visible = true
+}
 
 onMounted(() => {
   refreshData()

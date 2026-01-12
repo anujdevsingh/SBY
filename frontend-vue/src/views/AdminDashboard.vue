@@ -139,8 +139,7 @@
                       <td class="fw-bold">₹ {{ tx.amount }}</td>
                       <td>{{ tx.transaction_ref }}</td>
                       <td>
-                          <a v-if="tx.screenshot_data" :href="tx.screenshot_data" target="_blank" class="btn btn-sm btn-light">View</a>
-                          <a v-else-if="tx.screenshot_path" :href="getFileUrl(tx.screenshot_path)" target="_blank" class="btn btn-sm btn-light">View</a>
+                          <button v-if="tx.screenshot_data || tx.screenshot_path" @click="viewProof(tx)" class="btn btn-sm btn-light">View</button>
                           <span v-else class="text-muted small">—</span>
                       </td>
                       <td class="small" style="max-width: 150px;">
@@ -154,14 +153,17 @@
                         <span class="badge" :class="statusClass(tx.status)">{{ tx.status.toUpperCase() }}</span>
                       </td>
                       <td>
-                          <button @click="confirmApproveTx(tx)" class="btn btn-sm btn-success me-2" :disabled="actionLoading">
-                            <span v-if="actionLoading === `approve-tx-${tx.id}`" class="spinner-border spinner-border-sm me-1"></span>
-                            Approve
-                          </button>
-                          <button @click="confirmRejectTx(tx)" class="btn btn-sm btn-outline-danger" :disabled="actionLoading">
-                            <span v-if="actionLoading === `reject-tx-${tx.id}`" class="spinner-border spinner-border-sm me-1"></span>
-                            Reject
-                          </button>
+                          <template v-if="tx.status === 'pending'">
+                            <button @click="confirmApproveTx(tx)" class="btn btn-sm btn-success me-2" :disabled="actionLoading">
+                              <span v-if="actionLoading === `approve-tx-${tx.id}`" class="spinner-border spinner-border-sm me-1"></span>
+                              Approve
+                            </button>
+                            <button @click="confirmRejectTx(tx)" class="btn btn-sm btn-outline-danger" :disabled="actionLoading">
+                              <span v-if="actionLoading === `reject-tx-${tx.id}`" class="spinner-border spinner-border-sm me-1"></span>
+                              Reject
+                            </button>
+                          </template>
+                          <span v-else class="text-muted small">—</span>
                       </td>
                    </tr>
                    <tr v-if="pendingTxns.length === 0">
@@ -242,6 +244,26 @@
       @confirm="confirmModal.onConfirm"
       @cancel="confirmModal.onCancel"
     />
+
+    <!-- Image Preview Modal -->
+    <Teleport to="body">
+      <div
+        v-if="proofModal.visible"
+        class="modal fade show d-block"
+        tabindex="-1"
+        style="background-color: rgba(0,0,0,0.8);"
+        @click.self="proofModal.visible = false"
+      >
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+          <div class="modal-content border-0 bg-transparent">
+            <div class="text-end mb-2">
+              <button type="button" class="btn btn-light btn-sm" @click="proofModal.visible = false">✕ Close</button>
+            </div>
+            <img :src="proofModal.imageUrl" class="img-fluid rounded shadow" alt="Transaction Proof" />
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -436,6 +458,22 @@ const updateTxStatus = async (id, status, note = '') => {
 
 const getFileUrl = (path) => {
     return `${UPLOAD_BASE_URL}/${path}`
+}
+
+// Image preview modal
+const proofModal = ref({
+  visible: false,
+  imageUrl: ''
+})
+
+const viewProof = (tx) => {
+  // Prefer Base64 data, fallback to file path
+  if (tx.screenshot_data) {
+    proofModal.value.imageUrl = tx.screenshot_data
+  } else if (tx.screenshot_path) {
+    proofModal.value.imageUrl = getFileUrl(tx.screenshot_path)
+  }
+  proofModal.value.visible = true
 }
 
 const statusClass = (status) => {
